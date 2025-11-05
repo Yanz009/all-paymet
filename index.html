@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo Payment — Checkout</title>
+  <style>
+    :root{
+      --bg:#f5f7fb; --card:#ffffff; --primary:#0b72ff; --muted:#6b7280;
+      --success:#16a34a; --danger:#ef4444;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,var(--bg),#fff);color:#0f172a}
+    .container{max-width:980px;margin:36px auto;padding:24px}
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:24px}
+    .card{background:var(--card);border-radius:14px;padding:20px;box-shadow:0 6px 24px rgba(8,15,30,0.06)}
+    h1{margin:0 0 8px;font-size:20px}
+    p.lead{margin:0 0 18px;color:var(--muted)}
+
+    /* Form styles */
+    .field{margin-bottom:12px}
+    label{display:block;font-size:13px;margin-bottom:6px;color:#0f172a}
+    input[type=text], input[type=email], input[type=number], select{
+      width:100%;padding:12px 14px;border-radius:10px;border:1px solid #e6e9ef;font-size:14px;background:#fbfdff
+    }
+    .row{display:flex;gap:10px}
+    .col{flex:1}
+    .muted{color:var(--muted);font-size:13px}
+
+    .summary{padding:18px}
+    .summary .line{display:flex;justify-content:space-between;margin-bottom:8px}
+    .total{font-weight:700;font-size:18px}
+
+    .btn{display:inline-block;padding:12px 16px;border-radius:10px;background:var(--primary);color:#fff;border:0;font-weight:600;cursor:pointer}
+    .btn:disabled{opacity:0.6;cursor:not-allowed}
+
+    .small{font-size:13px}
+
+    /* Card preview */
+    .card-visual{background:linear-gradient(135deg,#0b72ff,#6dd5fa);color:white;border-radius:12px;padding:18px;min-height:120px}
+    .chip{width:44px;height:30px;border-radius:6px;background:rgba(255,255,255,0.25);display:inline-block}
+    .cvv{opacity:0.9}
+
+    /* Processing overlay */
+    .overlay{position:fixed;inset:0;background:rgba(6,8,15,0.45);display:flex;align-items:center;justify-content:center;z-index:99}
+    .spinner{width:72px;height:72px;border-radius:50%;border:8px solid rgba(255,255,255,0.12);border-top-color:var(--primary);animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Responsive */
+    @media (max-width:880px){.grid{grid-template-columns:1fr;}.container{padding:16px}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="grid">
+      <div class="card">
+        <h1>Checkout</h1>
+        <p class="lead">Masukkan data pembayaran Anda. Ini adalah demo — jangan masukkan data kartu nyata.</p>
+
+        <form id="checkoutForm" autocomplete="off">
+          <div class="field">
+            <label for="name">Dana </label>
+            <input id="name" name="name" type="text" placeholder="Nama lengkap" required />
+          </div>
+
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" placeholder="email@contoh.com" required />
+          </div>
+
+          <div class="field">
+            <label for="amount">300k(IDR)</label>
+            <input id="amount" name="amount" type="number" min="1000" step="1000" value="50000" required />
+          </div>
+
+          <hr style="margin:14px 0;border:none;border-top:1px solid #eef2f7" />
+
+          <div class="field">
+            <label for="cardnumber">6283125720132</label>
+            <input id="cardnumber" name="cardnumber" type="text" inputmode="numeric" maxlength="19" placeholder="1234 5678 9012 3456" required />
+            <div class="muted small">Diformat otomatis. Hanya demo — tidak mengirimkan data ke server.</div>
+          </div>
+
+          <div class="row">
+            <div class="col field">
+              <label for="exp">Berlaku hingga (MM/YY)</label>
+              <input id="exp" name="exp" type="text" maxlength="5" placeholder="MM/YY" required />
+            </div>
+            <div class="col field">
+              <label for="cvv">CVV</label>
+              <input id="cvv" name="cvv" type="text" maxlength="4" inputmode="numeric" placeholder="123" required />
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:center;margin-top:10px">
+            <button class="btn" id="payBtn" type="submit">Bayar Sekarang</button>
+            <div class="muted small">Transaksi aman — demo</div>
+          </div>
+        </form>
+
+        <div id="message" style="margin-top:14px"></div>
+      </div>
+
+      <aside class="card summary">
+        <div class="card-visual" aria-hidden="true">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="chip"></di            <div class="muted small">Demo</div>
+          </div>
+          <div style="margin-top:18px;font-size:18px;letter-spacing:2px" id="previewNumber">•••• •••• •••• ••••</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+            <div>
+              <div id="previewName" style="text-transform:uppercase;font-weight:600">yanz</div>
+              <div class="muted small" id="previewExp">MM/YY</div>
+            </div>
+            <div class="cvv muted small">IDR <span id="previewAmount">50,000</span></div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px">
+          <div class="line"><div class="muted">Subtotal</div><div>IDR <span id="sumAmount">50,000</span></div></div>
+          <div class="line"><div class="muted">Biaya admin</div><div>IDR 2,500</div></div>
+          <div class="line total"><div>Total</div><div>IDR <span id="totalAmount">52,500</span></div></div>
+        </div>
+
+        <div style="margin-top:12px" class="small muted">Metode pembayaran: Dana/Qris</div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Processing overlay (hidden by default) -->
+  <div id="overlay" class="overlay" style="display:none">
+    <div style="text-align:center;color:white">
+      <div class="spinner"></div>
+      <div style="margin-top:12px;font-weight:600">Memproses pembayaran...</div>
+    </div>
+  </div>
+
+  <script>
+    // Utility: format number as IDR
+    function formatIDR(n){return new Intl.NumberFormat('id-ID').format(Math.max(0,Math.round(n)))}
+
+    const form = document.getElementById('checkoutForm');
+    const amountInput = document.getElementById('amount');
+    const sumAmount = document.getElementById('sumAmount');
+    const totalAmount = document.getElementById('totalAmount');
+    const previewAmount = document.getElementById('previewAmount');
+    const previewNumber = document.getElementById('previewNumber');
+    const previewName = document.getElementById('previewName');
+    const previewExp = document.getElementById('previewExp');
+    const overlay = document.getElementById('overlay');
+    const message = document.getElementById('message');
+
+    const adminFee = 2500;
+
+    function recalc(){
+      const amt = Number(amountInput.value) || 0;
+      sumAmount.textContent = formatIDR(amt);
+      previewAmount.textContent = formatIDR(amt);
+      totalAmount.textContent = formatIDR(amt + adminFee);
+    }
+    recalc();
+    amountInput.addEventListener('input',recalc);
+
+    // Format card number input with spaces
+    const cardInput = document.getElementById('cardnumber');
+    cardInput.addEventListener('input', (e)=>{
+      let v = e.target.value.replace(/\D/g,'').substr(0,16);
+      const parts = [];
+      for(let i=0;i<v.length;i+=4) parts.push(v.substr(i,4));
+      e.target.value = parts.join(' ');
+      previewNumber.textContent = e.target.value || '•••• •••• •••• ••••';
+    });
+
+    // Expiry input auto-add slash
+    const expInput = document.getElementById('exp');
+    expInput.addEventListener('input',(e)=>{
+      let v = e.target.value.replace(/\D/g,'').substr(0,4);
+      if(v.length>2) v = v.substr(0,2) + '/' + v.substr(2);
+      e.target.value = v;
+      previewExp.textContent = v || 'MM/YY';
+    });
+
+    // Name preview
+    const nameInput = document.getElementById('name');
+    nameInput.addEventListener('input', ()=>{
+      previewName.textContent = (nameInput.value || 'yanz').toUpperCase();
+    });
+
+    // Simple Luhn check for basic validation
+    function luhnCheck(cardNumber){
+      const digits = cardNumber.replace(/\D/g,'');
+      let sum = 0; let alt = false;
+      for(let i=digits.length-1;i>=0;i--){
+        let n = parseInt(digits.charAt(i),10);
+        if(alt){n*=2; if(n>9) n-=9}
+        sum+=n; alt = !alt;
+      }
+      return digits.length>=12 && (sum%10===0);
+    }
+
+    form.addEventListener('submit', async (ev)=>{
+      ev.preventDefault();
+      message.innerHTML='';
+
+      const card = cardInput.value.replace(/\s/g,'');
+      const exp = expInput.value;
+      const cvv = document.getElementById('cvv').value;
+      const email = document.getElementById('email').value;
+      const name = nameInput.value;
+      const amount = Number(amountInput.value) || 0;
+
+      // Basic client-side checks
+      if(!luhnCheck(card)){
+        message.innerHTML = '<div style="color:var(--danger);font-weight:600">Nomor kartu tidak valid.</div>';
+        return;
+      }
+      if(!/^\d{2}\/\d{2}$/.test(exp)){
+        message.innerHTML = '<div style="color:var(--danger);font-weight:600">Format expired harus MM/YY.</div>';
+        return;
+      }
+      if(!/^\d{3,4}$/.test(cvv)){
+        message.innerHTML = '<div style="color:var(--danger);font-weight:600">CVV tidak valid.</div>';
+        return;
+      }
+      if(amount < 1000){
+        message.innerHTML = '<div style="color:var(--danger);font-weight:600">Jumlah minimal IDR 1.000.</div>';
+        return;
+      }
+
+      // Show processing overlay
+      overlay.style.display='flex';
+      document.getElementById('payBtn').disabled = true;
+
+      // Simulate server processing delay
+      await new Promise(r=>setTimeout(r,1800));
+
+      // Simulate success/failure randomly (for demo)
+      const ok = Math.random() > 0.12; // 88% chance success
+      overlay.style.display='none';
+      document.getElementById('payBtn').disabled = false;
+
+      if(ok){
+        message.innerHTML = '<div style="color:var(--success);font-weight:700">Pembayaran berhasil!<br/><span class="muted small">Keterangan: ini hanya demo. Tidak ada transaksi nyata.</span></div>';
+        form.reset();
+        previewNumber.textContent='•••• •••• •••• ••••';
+        previewName.textContent='yanz';
+        previewExp.textContent='MM/YY';
+        recalc();
+      } else {
+        message.innerHTML = '<div style="color:var(--danger);font-weight:700">Pembayaran gagal. Silakan coba lagi atau gunakan kartu lain.</div>';
+      }
+
+    });
+
+    // Accessibility: allow Enter on amount to submit
+    amountInput.addEventListener('keydown',(e)=>{ if(e.key==='Enter') e.preventDefault(); });
+  </script>
+</body>
+</html>
